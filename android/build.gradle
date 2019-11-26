@@ -1,0 +1,52 @@
+apply plugin: 'com.android.library'
+
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
+def safeCfgGet(prop, fallback) {
+    project.hasProperty(prop) ? project.getProperties().get(prop).trim() : fallback
+}
+
+android {
+    compileSdkVersion safeExtGet('compileSdkVersion', 28)
+    buildToolsVersion safeExtGet('buildToolsVersion', "28.0.3")
+    defaultConfig {
+        minSdkVersion safeExtGet('minSdkVersion', 16)
+        targetSdkVersion safeExtGet('targetSdkVersion', 28)
+        versionCode 1
+        versionName "1.0"
+        consumerProguardFiles "proguard.pro"
+    }
+    lintOptions {
+        abortOnError false
+    }
+}
+
+
+dependencies {
+    implementation 'com.facebook.react:react-native:+'
+
+    // 若以下依赖冲突, 可自行在 app 项目中导入以下依赖
+    // 并在 gradle.properties 添加 BQGAME_READY=true 强制这里不导入
+    // 默认情况, 为减少配置, 是直接导入的
+    if (safeCfgGet("BQGAME_READY", "false") != "true") {
+        implementation 'com.google.code.gson:gson:2.8.5'
+        implementation 'com.squareup.okhttp3:logging-interceptor:3.12.0'
+        implementation 'com.android.support:recyclerview-v7:28.0.0'
+        implementation 'com.github.bumptech.glide:glide:4.9.0'
+    }
+
+    def deps = ["cmgame-sdk-tt2103-1.1.7.aar"]
+
+    // 是否启用 x5 (默认不启用) 添加 BQGAME_X5_ENABLE=true 启用
+    if (safeCfgGet("BQGAME_X5_ENABLE", "false") == "true") {
+        deps.add("x5fit-1.1.7.aar")
+
+        // 启用 x5, 是否已集成了 x5 sdk 添加 BQGAME_X5_SDK=true 跳过这里的集成
+        if (safeCfgGet("BQGAME_X5_SDK", "false") != "true") {
+            implementation 'com.tencent.tbs.tbssdk:sdk:43697'
+        }
+    }
+    implementation fileTree(dir: "libs", include: deps)
+}

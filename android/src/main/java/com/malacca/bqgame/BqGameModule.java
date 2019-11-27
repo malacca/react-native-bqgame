@@ -1,13 +1,21 @@
 package com.malacca.bqgame;
 
-import android.util.Log;
+import java.util.List;
+import java.util.ArrayList;
+
+import android.text.TextUtils;
 import androidx.annotation.NonNull;
 
+import com.facebook.react.bridge.Promise;
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import com.cmcm.cmgame.CmGameSdk;
 import com.cmcm.cmgame.IAppCallback;
@@ -16,6 +24,7 @@ import com.cmcm.cmgame.IGameStateCallback;
 import com.cmcm.cmgame.IGameAccountCallback;
 import com.cmcm.cmgame.IGameExitInfoCallback;
 import com.cmcm.cmgame.IGamePlayTimeCallback;
+import com.cmcm.cmgame.gamedata.bean.GameInfo;
 import com.cmcm.cmgame.gamedata.CmGameAppInfo;
 
 public class BqGameModule extends ReactContextBaseJavaModule implements LifecycleEventListener,
@@ -27,13 +36,15 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
         IGameStateCallback
 {
     private static final String REACT_CLASS = "BqGameModule";
-    private boolean sdkInit;
+    private ReactApplicationContext rnContext;
+    private DeviceEventManagerModule.RCTDeviceEventEmitter mJSModule;
 
     /**
      * 模块类 开始
      */
     public BqGameModule(ReactApplicationContext context) {
         super(context);
+        rnContext = context;
     }
 
     @Override
@@ -66,12 +77,12 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
     // 初始化 sdk
     @ReactMethod
     public void initSdk(ReadableMap config) {
-        if (sdkInit) {
-            return;
-        }
-        sdkInit = true;
         removeListener();
         initListener(config);
+        String account = getConfigStr(config, "account");
+        if (!TextUtils.isEmpty(account)) {
+            CmGameSdk.restoreCmGameAccount(account);
+        }
         CmGameSdk.initCmGameSdk(
                 getCurrentActivity().getApplication(),
                 getGameAppInfo(config),
@@ -80,8 +91,23 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
         );
     }
 
-    public boolean isInit() {
-        return sdkInit;
+    // 设置登陆账号
+    @ReactMethod
+    public void setAccount(String account) {
+        CmGameSdk.restoreCmGameAccount(account);
+    }
+
+    // 清除当前账号, 会生成新的账号
+    @ReactMethod
+    public void clearAccount() {
+        CmGameSdk.clearCmGameAccount();
+    }
+
+    // 是否静音
+    @ReactMethod
+    public void isMute(Promise promise) {
+        CmGameAppInfo app = CmGameSdk.getCmGameAppInfo();
+        promise.resolve(app == null ? null : app.isMute());
     }
 
     // 静音
@@ -91,6 +117,13 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
         if (app != null) {
             app.setMute(mute);
         }
+    }
+
+    // 是否屏幕常亮
+    @ReactMethod
+    public void isScreenOn(Promise promise) {
+        CmGameAppInfo app = CmGameSdk.getCmGameAppInfo();
+        promise.resolve(app == null ? null : app.isScreenOn());
     }
 
     // 游戏时屏幕常亮
@@ -120,36 +153,139 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
         }
     }
 
+    // 获取所有游戏列表信息
+    @ReactMethod
+    public void getGameList(Promise promise) {
+        List<GameInfo> gameInfo = CmGameSdk.getGameInfoList();
+        promise.resolve(parseGameList(gameInfo));
+    }
+
+    // 获取热门推荐游戏
+    @ReactMethod
+    public void getHotList(Promise promise) {
+        List<GameInfo> gameInfo = CmGameSdk.getHotGameInfoList();
+        promise.resolve(parseGameList(gameInfo));
+    }
+
+    // 获取最近上新游戏
+    @ReactMethod
+    public void getNewList(Promise promise) {
+        List<GameInfo> gameInfo = CmGameSdk.getNewGameInfoList();
+        promise.resolve(parseGameList(gameInfo));
+    }
+
+    // 获取最近3个常玩游戏
+    @ReactMethod
+    public void getLastPlayList(Promise promise) {
+        List<GameInfo> gameInfo = CmGameSdk.getLastPlayGameInfoList();
+        promise.resolve(parseGameList(gameInfo));
+    }
+
+    // 由 gameId 获取单个游戏信息
+    @ReactMethod
+    public void getGameInfo(String gameId, Promise promise) {
+        GameInfo gameInfo = CmGameSdk.getGameInfoByGameId(gameId);
+        promise.resolve(parseGameInfo(gameInfo));
+    }
+
+    // 由 gameId 获取在线人数
+    @ReactMethod
+    public void getPlayNumbers(String gameId, Promise promise) {
+        promise.resolve(CmGameSdk.getGamePlayNumbers(gameId));
+    }
+
+    // 是否存在游戏
+    @ReactMethod
+    public void hasGame(String gameId, Promise promise) {
+        promise.resolve(CmGameSdk.hasGame(gameId));
+    }
+
+    // 开始游戏
+    @ReactMethod
+    public void startGame(String gameId) {
+        CmGameSdk.startH5Game(gameId);
+    }
+
+    private WritableArray parseGameList(List<GameInfo> gameInfo) {
+        WritableArray list = Arguments.createArray();
+        if (gameInfo == null) {
+            return list;
+        }
+        for (GameInfo game: gameInfo) {
+            list.pushMap(parseGameInfo(game));
+        }
+        return list;
+    }
+
+    private WritableMap parseGameInfo(GameInfo game) {
+        if (game == null) {
+            return null;
+        }
+        WritableArray typeTagList = Arguments.createArray();
+        ArrayList<String> tags = game.getTypeTagList();
+        for (String tag: tags) {
+            typeTagList.pushString(tag);
+        }
+        WritableMap params = Arguments.createMap();
+        params.putString("gameId", game.getGameId());
+        params.putInt("gameIdServer", game.getGameIdServer());
+        params.putString("name", game.getName());
+        params.putString("iconUrl", game.getIconUrl());
+        params.putBoolean("isNew", game.isNew());
+        params.putBoolean("isRecommend", game.isRecommend());
+        params.putBoolean("isBQGame", game.isBQGame());
+        params.putBoolean("isLastPlayed", game.isLastPlayed());
+        params.putBoolean("isHaveSetState", game.isHaveSetState());
+        params.putInt("type", game.getType());
+        params.putString("gameType", game.getGameType());
+        params.putString("slogan", game.getSlogan());
+        params.putString("iconUrlSquare", game.getIconUrlSquare());
+        params.putArray("typeTagList", typeTagList);
+        return params;
+    }
+
     // 先移除所有监听
     private void removeListener() {
-        CmGameSdk.removeGameClickCallback();
-        CmGameSdk.removeGamePlayTimeCallback();
-        CmGameSdk.removeGameAdCallback();
         CmGameSdk.removeGameAccountCallback();
-        CmGameSdk.removeGameStateCallback();
+        CmGameSdk.removeGameClickCallback();
         CmGameSdk.removeGameExitInfoCallback();
+        CmGameSdk.removeGamePlayTimeCallback();
+        CmGameSdk.removeGameStateCallback();
+        CmGameSdk.removeGameAdCallback();
     }
 
     // 设置监听
     private void initListener(ReadableMap config) {
         // 账号信息变化时触发回调，若需要支持APP卸载后游戏信息不丢失，需要注册该回调
-        CmGameSdk.setGameAccountCallback(this);
+        if (isConfigTrue(config, "onLogin")) {
+            CmGameSdk.setGameAccountCallback(this);
+        }
 
         // 默认游戏中心页面，点击游戏试，触发回调
-        CmGameSdk.setGameClickCallback(this);
+        if (isConfigTrue(config, "onClick")) {
+            CmGameSdk.setGameClickCallback(this);
+        }
+
+        // 游戏界面的状态信息回调，1 onPause; 2 onResume
+        if (isConfigTrue(config, "onState")) {
+            CmGameSdk.setGameStateCallback(this);
+        }
 
         // 返回游戏数据(json格式)，如：每玩一关，返回关卡数，分数，如钓钓乐，返回水深，绳子长度，不同游戏不一样
         // 该功能使用场景：媒体利用游戏数据，和app的功能结合做运营活动，比如：某每天前50名，得到某些奖励
-        CmGameSdk.setGameExitInfoCallback(this);
+        if (isConfigTrue(config, "onPass")) {
+            CmGameSdk.setGameExitInfoCallback(this);
+        }
 
         // 点击游戏右上角或物理返回键，退出游戏时触发回调，并返回游戏时长
-        CmGameSdk.setGamePlayTimeCallback(this);
-
-        // 游戏界面的状态信息回调，1 onPause; 2 onResume
-        CmGameSdk.setGameStateCallback(this);
+        if (isConfigTrue(config, "onClose")) {
+            CmGameSdk.setGamePlayTimeCallback(this);
+        }
 
         // 所有广告类型的展示和点击事件回调，仅供参考，数据以广告后台为准
-        CmGameSdk.setGameAdCallback(this);
+        if (isConfigTrue(config, "onAd")) {
+            CmGameSdk.setGameAdCallback(this);
+        }
     }
 
     // 属性设置
@@ -165,33 +301,69 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
         cmGameAppInfo.setQuitGameConfirmRecommand(
                 !config.hasKey("quitRecommend") || config.getBoolean("quitRecommend")
         );
-        cmGameAppInfo.setTtInfo(getGameTTInfo(config));
+        setGameTTadInfo(cmGameAppInfo, config);
         return cmGameAppInfo;
     }
 
     // 广告设置
-    private CmGameAppInfo.TTInfo getGameTTInfo(ReadableMap config) {
+    private void setGameTTadInfo(CmGameAppInfo gameAppInfo, ReadableMap config) {
+        ReadableMap ttad = config.hasKey("ttad") ? config.getMap("ttad") : null;
+        if (ttad == null) {
+            return;
+        }
+        // 广告信息
+        // -------------------------------------------------------
         CmGameAppInfo.TTInfo ttInfo = new CmGameAppInfo.TTInfo();
-        ttInfo.setRewardVideoId("936101115");   // 激励视频
 
-//        ttInfo.setGameListFeedId("901121737"); // 游戏列表，信息流广告，自渲染
+        // 激励视频
+        ttInfo.setRewardVideoId(getConfigStr(ttad, "rewardVideo"));
 
-//        ttInfo.setFullVideoId("901121375");     // 全屏视频，插屏场景下展示
-//        ttInfo.setExpressInteractionId("901121133"); // 插屏广告，模板渲染，插屏场景下展示
-//        ttInfo.setExpressBannerId("901121159"); // Banner广告，模板渲染，尺寸：600*150
-//        ttInfo.setGameEndFeedAdId("901121737"); // 游戏推荐弹框底部广告
-//
-//        // 游戏列表展示时显示，插屏广告，模板渲染1：1
-//        // 游戏以tab形式的入口不要使用
-//        ttInfo.setGamelistExpressInteractionId("901121536");
-//
-//        // 游戏加载时展示，下面广告2选1
-//        // 插屏广告-原生-自渲染-大图
-//        // 在2019-7-17后，穿山甲只针对部分媒体开放申请，如后台无法申请到这个广告位，则无需调用代码
-//        ttInfo.setLoadingNativeId("901121435");
-//        // 此广告申请，所有媒体都可申请，游戏加载时展示，插屏广告1:1，模板渲染
-//        ttInfo.setGameLoad_EXADId("901121536");
-        return ttInfo;
+        // 游戏列表，信息流广告，自渲染
+        ttInfo.setGameListFeedId(getConfigStr(ttad, "listFeed"));
+
+        // 全屏视频，插屏场景下展示
+        ttInfo.setFullVideoId(getConfigStr(ttad, "fullVideo"));
+
+        // 插屏广告，模板渲染，插屏场景下展示
+        ttInfo.setExpressInteractionId(getConfigStr(ttad, "expressInteraction"));
+
+        // Banner广告，模板渲染，尺寸：600*150
+        ttInfo.setExpressBannerId(getConfigStr(ttad, "expressBanner"));
+
+        // 退出游戏 推荐弹框底部广告，自渲染
+        ttInfo.setGameEndFeedAdId(getConfigStr(ttad, "recommendFeed"));
+
+        // 游戏列表展示时显示，插屏广告，模板渲染1：1
+        // 游戏以tab形式的入口不要使用
+        ttInfo.setGamelistExpressInteractionId(getConfigStr(ttad, "listInteraction"));
+
+        // 游戏加载时展示，下面广告2选1
+        // 插屏广告-原生-自渲染-大图
+        // 在2019-7-17后，穿山甲只针对部分媒体开放申请，如后台无法申请到这个广告位，则无需调用代码
+        ttInfo.setLoadingNativeId(getConfigStr(ttad, "loadingNative"));
+
+        // 此广告申请，所有媒体都可申请，游戏加载时展示，插屏广告1:1，模板渲染
+        ttInfo.setGameLoad_EXADId(getConfigStr(ttad, "loadingInteraction"));
+
+        // 载入广告信息
+        gameAppInfo.setTtInfo(ttInfo);
+
+        // 广告配置
+        // -------------------------------------------------------
+        CmGameAppInfo.GameListAdInfo adInfo = new CmGameAppInfo.GameListAdInfo();
+
+        // 热门推荐是否显示
+        adInfo.setHotGameListAdShow(!ttad.hasKey("adHot") || ttad.getBoolean("adHot"));
+
+        // 最新  是否显示
+        adInfo.setNewGameListAdShow(!ttad.hasKey("adNew") || ttad.getBoolean("adNew"));
+
+        // 更多好玩  是否显示
+        adInfo.setMoreGameListAdShow(!ttad.hasKey("adMore") || ttad.getBoolean("adMore"));
+
+        int slice = ttad.hasKey("adMoreSlice") ? Math.max(1, ttad.getInt("adMoreSlice")) : 4;
+        adInfo.setMoreGameListAdInternal(slice);
+        gameAppInfo.setGameListAdInfo(adInfo);
     }
 
     /**
@@ -200,25 +372,51 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
      */
     @Override
     public void onGameAccount(String loginInfo) {
-        Log.d("cmgamesdk_Main2Activity", "onGameAccount loginInfo: " + loginInfo);
+        WritableMap params = Arguments.createMap();
+        params.putString("event", "onLogin");
+        params.putString("account", loginInfo);
+        sendEvent(params);
     }
 
     // 游戏点击回调
     @Override
     public void gameClickCallback(String gameName, String gameID) {
-        Log.d("cmgamesdk_Main2Activity", gameID + "----" + gameName );
+        WritableMap params = Arguments.createMap();
+        params.putString("event", "onClick");
+        params.putString("gameID", gameID);
+        params.putString("gameName", gameName);
+        sendEvent(params);
     }
 
     // 游戏暂停开始回调
     @Override
     public void gameStateCallback(int nState) {
-        Log.d("cmgamesdk_Main2Activity", "gameStateCallback: " + nState);
+        WritableMap params = Arguments.createMap();
+        params.putString("event", "onState");
+        params.putInt("state", nState);
+        sendEvent(params);
+    }
+
+    /**
+     * 返回游戏数据(json格式)，如：每玩一关，返回关卡数，分数，如钓钓乐，返回水深，绳子长度，不同游戏不一样
+     * 该功能使用场景：媒体利用游戏数据，和app的功能结合做运营活动，比如：某每天前50名，得到某些奖励
+     */
+    @Override
+    public  void gameExitInfoCallback(String gameExitInfo) {
+        WritableMap params = Arguments.createMap();
+        params.putString("event", "onPass");
+        params.putString("info", gameExitInfo);
+        sendEvent(params);
     }
 
     // 游戏时长回调(秒)
     @Override
     public void gamePlayTimeCallback(String gameId, int playTimeInSeconds) {
-        Log.d("cmgamesdk_Main2Activity", "play game ：" + gameId + "playTimeInSeconds : " + playTimeInSeconds);
+        WritableMap params = Arguments.createMap();
+        params.putString("event", "onClose");
+        params.putString("gameId", gameId);
+        params.putInt("time", playTimeInSeconds);
+        sendEvent(params);
     }
 
     /**
@@ -230,16 +428,18 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
      */
     @Override
     public void onGameAdAction(String gameId, int adType, int adAction) {
-        Log.d("cmgamesdk_Main2Activity", "onGameAdAction gameId: " + gameId + " adType: " + adType + " adAction: " + adAction);
+        WritableMap params = Arguments.createMap();
+        params.putString("event", "onAd");
+        params.putString("gameId", gameId);
+        params.putInt("adType", adType);
+        params.putInt("adAction", adAction);
+        sendEvent(params);
     }
 
-    /**
-     * 返回游戏数据(json格式)，如：每玩一关，返回关卡数，分数，如钓钓乐，返回水深，绳子长度，不同游戏不一样
-     * 该功能使用场景：媒体利用游戏数据，和app的功能结合做运营活动，比如：某每天前50名，得到某些奖励
-     */
-    @Override
-    public  void gameExitInfoCallback(String gameExitInfo) {
-        Log.d("cmgamesdk_Main2Activity", "gameExitInfoCallback: " + gameExitInfo);
+    private void sendEvent(WritableMap params) {
+        if (mJSModule == null) {
+            mJSModule = rnContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class);
+        }
+        mJSModule.emit("BqGameEvent", params);
     }
-
 }

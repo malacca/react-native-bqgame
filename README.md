@@ -26,6 +26,8 @@ react native bqgame
 - 若编译过程，相关依赖版本冲突
 - 让 bqgame 在 android 5.0(包含)以下尝试启用 x5 内核
 
+启用 x5 若产生 `cannot fit requested classes in a single dex file`，请 [参考](https://github.com/invertase/react-native-firebase/issues/1836)
+
 
 # iOS 配置
 

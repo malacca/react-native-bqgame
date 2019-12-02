@@ -1,17 +1,49 @@
 package com.malacca.bqgame;
 
+import android.content.Context;
 import android.widget.LinearLayout;
 import androidx.annotation.NonNull;
 import androidx.core.widget.NestedScrollView;
 
 import com.cmcm.cmgame.GameView;
+import com.facebook.react.uimanager.Spacing;
+import com.facebook.react.uimanager.LayoutShadowNode;
 import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
 
-public class BqGameViewManager extends SimpleViewManager {
+public class BqGameViewManager extends SimpleViewManager<BqGameViewManager.BqGameView> {
+    private LayoutShadowNode layoutShadowNode;
 
-    private static class BqGameView extends NestedScrollView {
+    @Override
+    public @NonNull String getName() {
+        return "RNBqGameView";
+    }
+
+    @Override
+    protected @NonNull BqGameView createViewInstance(@NonNull ThemedReactContext context) {
+        return new BqGameView(context);
+    }
+
+    @Override
+    public LayoutShadowNode createShadowNodeInstance() {
+        return layoutShadowNode = new LayoutShadowNode();
+    }
+
+    @Override
+    protected void onAfterUpdateTransaction(@NonNull BqGameView view) {
+        super.onAfterUpdateTransaction(view);
+        view.setPadding(layoutShadowNode);
+    }
+
+    /**
+     * game center view
+     */
+    static class BqGameView extends NestedScrollView {
         private LinearLayout wrapper;
+
+        public BqGameView(Context context) {
+            super(context);
+        }
 
         public BqGameView(@NonNull ThemedReactContext context) {
             super(context);
@@ -55,15 +87,15 @@ public class BqGameViewManager extends SimpleViewManager {
                 layout(getLeft(), getTop(), getRight(), getBottom());
             }
         };
-    }
 
-    @Override
-    public @NonNull String getName() {
-        return "RNBqGameView";
-    }
-
-    @Override
-    protected @NonNull BqGameView createViewInstance(@NonNull ThemedReactContext context) {
-        return new BqGameView(context);
+        // 这里直接应用 父级(NestedScrollView)的 Yoga padding 到 LinearLayout 上
+        public void setPadding(LayoutShadowNode layoutShadowNode) {
+            wrapper.setPadding(
+                    (int) layoutShadowNode.getPadding(Spacing.LEFT),
+                    (int) layoutShadowNode.getPadding(Spacing.TOP),
+                    (int) layoutShadowNode.getPadding(Spacing.RIGHT),
+                    (int) layoutShadowNode.getPadding(Spacing.BOTTOM)
+            );
+        }
     }
 }

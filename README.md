@@ -24,7 +24,7 @@ react native bqgame
 参阅 [build.gradle](android/build.gradle#L30) 解决以下问题
 
 - 若编译过程，相关依赖版本冲突
-- 让 bqgame 在 android 5.0(包含)以下尝试启用 x5 内核
+- x5 内核集成的相关设置
 
 
 # iOS 配置
@@ -45,15 +45,14 @@ bqgame.config(appId, appHost).quitConfirm(true).ttad({
 
 }).onClick(() => {
 
-}).init();
-
+}).withX5(22).init();
 
 // 初始化之后 使用组件载入游戏列表
 
 <BqGameCenter />
 ```
 
-链式过程可使用的函数参见：[index.js](index.js#L34)
+链式过程可使用的函数参见：[index.js](index.js#L26)
 
 
 

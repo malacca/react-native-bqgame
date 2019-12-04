@@ -182,7 +182,7 @@ jsapi.setQuitConfirm = (confirm) => {
 }
 jsapi.setQuitRecommend = (recommend) => {
   setQuitRecommendNative(recommend||recommend === undefined)
-  return this
+  return jsapi
 }
 jsapi.getGameList = (withPlayNumbers) => {
   return bqgame.getGameList(Boolean(withPlayNumbers))

@@ -39,12 +39,12 @@ dependencies {
 
     def deps = ["cmgame-sdk-tt2103-1.1.7.aar"]
 
-    // 是否启用 x5 (默认不启用) 添加 BQGAME_X5_ENABLE=true 启用
+    // 是否集成 x5 (默认不集成) 添加 BQGAME_X5_ENABLE=true 集成
     if (safeCfgGet("BQGAME_X5_ENABLE", "false") == "true") {
         deps.add("x5fit-1.1.7.aar")
 
-        // 启用 x5, 是否已集成了 x5 sdk 添加 BQGAME_X5_SDK=true 跳过这里的集成
-        if (safeCfgGet("BQGAME_X5_SDK", "false") != "true") {
+        // 集成 x5 sdk, 若已集成, 为避免版本冲突, 可设置 BQGAME_X5_SDK_READY=true
+        if (safeCfgGet("BQGAME_X5_SDK_READY", "false") != "true") {
             implementation 'com.tencent.tbs.tbssdk:sdk:43697'
         }
     }

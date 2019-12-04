@@ -1,11 +1,20 @@
 package com.malacca.bqgame;
 
 import java.util.List;
+import java.util.Iterator;
 import java.util.ArrayList;
+import java.lang.reflect.Field;
+import java.lang.reflect.Proxy;
+import java.lang.reflect.Method;
+import java.lang.reflect.InvocationHandler;
 
+import android.os.Build;
 import android.text.TextUtils;
+import android.content.Context;
+
 import androidx.annotation.NonNull;
 
+import com.cmcm.cmgame.utils.X5Helper;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactMethod;
@@ -36,8 +45,10 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
         IGameStateCallback
 {
     private static final String REACT_CLASS = "BqGameModule";
+    private static Boolean x5Init = null;
     private ReactApplicationContext rnContext;
     private DeviceEventManagerModule.RCTDeviceEventEmitter mJSModule;
+    private List<Promise> getInfoCallbacks;
 
     /**
      * 模块类 开始
@@ -74,9 +85,22 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
         return config.hasKey(key) ? config.getString(key) : null;
     }
 
-    // 初始化 sdk
+    /**
+     * 初始化 sdk, 通过传递 withX5 参数来决定如何集成 x5
+     * 1. withX5="yes"  已在外部集成成功, 传递 yes 即可
+     * 2. withX5="no"   外部集成失败 或 强制不使用 x5
+     * 3. withX5="auto" 自动集成, 并可额外传递 maxLevel(默认22), 在 android API LEVEL > maxLevel 自动集成
+     */
     @ReactMethod
     public void initSdk(ReadableMap config) {
+        String x5 = config.hasKey("withX5") ? config.getString("withX5") : null;
+        if ("yes".equals(x5)) {
+            initX5End(true);
+        } else if ("no".equals(x5)) {
+            initX5End(false);
+        } else {
+            initX5Sdk(config.getInt("maxLevel"));
+        }
         removeListener();
         initListener(config);
         String account = getConfigStr(config, "account");
@@ -87,8 +111,87 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
                 getCurrentActivity().getApplication(),
                 getGameAppInfo(config),
                 new ImageLoader(),
-                BuildConfig.DEBUG
+                false
         );
+    }
+
+    // 通过反射初始化 x5 内核, 这样在无 x5 sdk 依赖的情况下仍然可编译
+    private void initX5Sdk(int maxLevel) {
+        if (x5Init != null) {
+            initX5End(x5Init);
+            return;
+        }
+        if (Build.VERSION.SDK_INT > maxLevel) {
+            initX5End(false);
+            return;
+        }
+        try {
+            Class<?> qbSdk = Class.forName("com.tencent.smtt.sdk.QbSdk");
+            Class<?> PreInitCallback = Class.forName("com.tencent.smtt.sdk.QbSdk$PreInitCallback");
+            Method method = qbSdk.getDeclaredMethod("initX5Environment", Context.class, PreInitCallback);
+            Object listener = Proxy.newProxyInstance(
+                    PreInitCallback.getClassLoader(),
+                    new Class[] { PreInitCallback },
+                    new PreInitCallback()
+            );
+            method.invoke(qbSdk, rnContext, listener);
+        } catch (Throwable e) {
+            initX5End(false);
+        }
+    }
+
+    private class PreInitCallback implements InvocationHandler {
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) {
+            if ("onViewInitFinished".equals(method.getName())) {
+                initX5End((boolean) args[0]);
+            }
+            return proxy;
+        }
+    }
+
+    private void initX5End(boolean success) {
+        try {
+            Class x5fit = Class.forName("com.cmgame.x5fit.X5CmGameSdk");
+            Field field = x5fit.getDeclaredField("mX5InitSuccess");
+            field.setAccessible(true);
+            field.set(null, success);
+            X5Helper.mX5InitSuccess = success;
+            x5Init = success;
+        } catch (Throwable e) {
+            x5Init = false;
+        }
+        if (getInfoCallbacks == null) {
+            return;
+        }
+        Iterator<Promise> i = getInfoCallbacks.iterator();
+        while (i.hasNext()) {
+            sendInfoToJs(i.next());
+            i.remove();
+        }
+        getInfoCallbacks = null;
+    }
+
+    // 获取一些有用的信息 方便 js 端做处理
+    // 比如可以在 apiLevel 低于某值且x5未集成情况下, 提醒用户 部分游戏可能无法运行
+    @ReactMethod
+    public void getInfo(Promise promise) {
+        if (x5Init != null) {
+            sendInfoToJs(promise);
+            return;
+        }
+        if (getInfoCallbacks == null) {
+            getInfoCallbacks = new ArrayList<>();
+        }
+        getInfoCallbacks.add(promise);
+    }
+
+    private void sendInfoToJs(Promise promise) {
+        WritableMap params = Arguments.createMap();
+        params.putString("sdkVersion", CmGameSdk.getVersion());
+        params.putInt("apiLevel", Build.VERSION.SDK_INT);
+        params.putBoolean("isX5", x5Init);
+        promise.resolve(params);
     }
 
     // 设置登陆账号
@@ -155,37 +258,37 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
 
     // 获取所有游戏列表信息
     @ReactMethod
-    public void getGameList(Promise promise) {
+    public void getGameList(boolean withPlayNumbers, Promise promise) {
         List<GameInfo> gameInfo = CmGameSdk.getGameInfoList();
-        promise.resolve(parseGameList(gameInfo));
+        promise.resolve(parseGameList(gameInfo, withPlayNumbers));
     }
 
     // 获取热门推荐游戏
     @ReactMethod
-    public void getHotList(Promise promise) {
+    public void getHotList(boolean withPlayNumbers, Promise promise) {
         List<GameInfo> gameInfo = CmGameSdk.getHotGameInfoList();
-        promise.resolve(parseGameList(gameInfo));
+        promise.resolve(parseGameList(gameInfo, withPlayNumbers));
     }
 
     // 获取最近上新游戏
     @ReactMethod
-    public void getNewList(Promise promise) {
+    public void getNewList(boolean withPlayNumbers, Promise promise) {
         List<GameInfo> gameInfo = CmGameSdk.getNewGameInfoList();
-        promise.resolve(parseGameList(gameInfo));
+        promise.resolve(parseGameList(gameInfo, withPlayNumbers));
     }
 
     // 获取最近3个常玩游戏
     @ReactMethod
-    public void getLastPlayList(Promise promise) {
+    public void getLastPlayList(boolean withPlayNumbers, Promise promise) {
         List<GameInfo> gameInfo = CmGameSdk.getLastPlayGameInfoList();
-        promise.resolve(parseGameList(gameInfo));
+        promise.resolve(parseGameList(gameInfo, withPlayNumbers));
     }
 
     // 由 gameId 获取单个游戏信息
     @ReactMethod
-    public void getGameInfo(String gameId, Promise promise) {
+    public void getGameInfo(String gameId, boolean withPlayNumbers, Promise promise) {
         GameInfo gameInfo = CmGameSdk.getGameInfoByGameId(gameId);
-        promise.resolve(parseGameInfo(gameInfo));
+        promise.resolve(parseGameInfo(gameInfo, withPlayNumbers));
     }
 
     // 由 gameId 获取在线人数
@@ -202,22 +305,27 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
 
     // 开始游戏
     @ReactMethod
-    public void startGame(String gameId) {
-        CmGameSdk.startH5Game(gameId);
+    public void startGame(String gameId, Promise promise) {
+        try {
+            CmGameSdk.startH5Game(gameId);
+            promise.resolve(true);
+        } catch (Throwable e) {
+            promise.reject(e);
+        }
     }
 
-    private WritableArray parseGameList(List<GameInfo> gameInfo) {
+    private WritableArray parseGameList(List<GameInfo> gameInfo, boolean withPlayNumbers) {
         WritableArray list = Arguments.createArray();
         if (gameInfo == null) {
             return list;
         }
         for (GameInfo game: gameInfo) {
-            list.pushMap(parseGameInfo(game));
+            list.pushMap(parseGameInfo(game, withPlayNumbers));
         }
         return list;
     }
 
-    private WritableMap parseGameInfo(GameInfo game) {
+    private WritableMap parseGameInfo(GameInfo game, boolean withPlayNumbers) {
         if (game == null) {
             return null;
         }
@@ -241,6 +349,9 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
         params.putString("slogan", game.getSlogan());
         params.putString("iconUrlSquare", game.getIconUrlSquare());
         params.putArray("typeTagList", typeTagList);
+        if (withPlayNumbers) {
+            params.putInt("playNumbers", CmGameSdk.getGamePlayNumbers(game.getGameId()));
+        }
         return params;
     }
 

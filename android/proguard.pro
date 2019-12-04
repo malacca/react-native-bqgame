@@ -16,11 +16,19 @@
 #   public *;
 #}
 
-# 需要维持拓展库中的注释
--keep class com.cmgame.x5fit.X5CmGameSdk{*;}
--keep class com.cmgame.x5fit.X5WebViewModule{*;}
-
 # 需要保持游戏SDK的Bean类不被混淆
--keep class com.cmcm.cmgame.gamedata.bean.* {*;}
--keep class com.cmcm.cmgame.bean.* {*;}
+-keep class com.cmcm.cmgame.bean.** {*;}
+-keep class com.cmcm.cmgame.gamedata.bean.** {*;}
 -keep class com.cmcm.cmgame.httpengine.bean.* {*;}
+
+
+# x5 fit 库
+-keep class com.cmgame.x5fit.** {*;}
+
+
+# x5 sdk
+-keep class MTT.ThirdAppInfoNew {*;}
+-keep class com.tencent.smtt.** {*;}
+-keep class com.tencent.tbs.video.interfaces.IUserStateChangedListener {*;}
+-keep public enum com.tencent.smtt.sdk.WebSettings$** {*;}
+-keep public enum com.tencent.smtt.sdk.QbSdk$** {*;}

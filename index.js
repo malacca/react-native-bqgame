@@ -26,8 +26,10 @@ const RNBqGameView = requireNativeComponent('RNBqGameView', BqGameCenter);
 const Attrs = [
   'appId',
   'appHost',
-  'withX5',   // 若项目已集成x5, 通过 withX5(bool enable) 来决定是否在游戏中启用
-              // 若未集成, 可通过 withX5(int level) 指定在 android api level 小于指定值时自动集成
+  'withX5',   // withX5(true)  - 已在外部集成x5, 告知即可
+              // withX5(false) - 不启用 x5
+              // withX5(null)  - 尝试自动集成 x5
+              // 可自行判断, 比如判断 android api level 小于某个值自动集成, 否则不启用
   'account',  // 游戏账户 (需设置为 onLogin 回调产生的账户名)
   'mute',     // 是否静音
   'screenOn', // 是否在游戏时保持屏幕常亮
@@ -79,12 +81,7 @@ class Bus {
           onState = true;
         }
       } else if (e === 'withX5') {
-        if (Number.isInteger(v)) {
-          initConfig.withX5 = "auto";
-          initConfig.maxLevel = Math.max(v, 17);
-        } else {
-          initConfig.withX5 = v ? "yes" : "no";
-        }
+        initConfig.withX5 = v === true ? "yes" : (v === false ? "no" : "auto");
       } else {
         initConfig[e] = Events.indexOf(e) === -1 ? v : (v ? true : false);
       }
@@ -148,8 +145,8 @@ const jsapi = {
   config,
   BqGameCenter
 }
-jsapi.getInfo = () => {
-  return bqgame.getInfo()
+jsapi.isX5 = () => {
+  return bqgame.isX5()
 }
 jsapi.setAccount = (account) => {
   account = account.trim();

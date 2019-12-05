@@ -1,7 +1,7 @@
 {
   "name": "react-native-bqgame",
   "title": "React Native BQgame",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "bqgame for react native",
   "main": "index.js",
   "repository": {

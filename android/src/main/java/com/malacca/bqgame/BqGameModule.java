@@ -89,7 +89,7 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
      * 初始化 sdk, 通过传递 withX5 参数来决定如何集成 x5
      * 1. withX5="yes"  已在外部集成成功, 传递 yes 即可
      * 2. withX5="no"   外部集成失败 或 强制不使用 x5
-     * 3. withX5="auto" 自动集成, 并可额外传递 maxLevel(默认22), 在 android API LEVEL > maxLevel 自动集成
+     * 3. withX5="auto" 尝试自动集成
      */
     @ReactMethod
     public void initSdk(ReadableMap config) {
@@ -99,7 +99,7 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
         } else if ("no".equals(x5)) {
             initX5End(false);
         } else {
-            initX5Sdk(config.getInt("maxLevel"));
+            initX5Sdk();
         }
         removeListener();
         initListener(config);
@@ -116,13 +116,9 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
     }
 
     // 通过反射初始化 x5 内核, 这样在无 x5 sdk 依赖的情况下仍然可编译
-    private void initX5Sdk(int maxLevel) {
+    private void initX5Sdk() {
         if (x5Init != null) {
-            initX5End(x5Init);
-            return;
-        }
-        if (Build.VERSION.SDK_INT > maxLevel) {
-            initX5End(false);
+            callX5Promise();
             return;
         }
         try {
@@ -161,37 +157,32 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
         } catch (Throwable e) {
             x5Init = false;
         }
+        callX5Promise();
+    }
+
+    private void callX5Promise() {
         if (getInfoCallbacks == null) {
             return;
         }
         Iterator<Promise> i = getInfoCallbacks.iterator();
         while (i.hasNext()) {
-            sendInfoToJs(i.next());
+            i.next().resolve(x5Init);
             i.remove();
         }
         getInfoCallbacks = null;
     }
 
-    // 获取一些有用的信息 方便 js 端做处理
-    // 比如可以在 apiLevel 低于某值且x5未集成情况下, 提醒用户 部分游戏可能无法运行
+    // x5 是否成功集成
     @ReactMethod
-    public void getInfo(Promise promise) {
+    public void isX5(Promise promise) {
         if (x5Init != null) {
-            sendInfoToJs(promise);
+            promise.resolve(x5Init);
             return;
         }
         if (getInfoCallbacks == null) {
             getInfoCallbacks = new ArrayList<>();
         }
         getInfoCallbacks.add(promise);
-    }
-
-    private void sendInfoToJs(Promise promise) {
-        WritableMap params = Arguments.createMap();
-        params.putString("sdkVersion", CmGameSdk.getVersion());
-        params.putInt("apiLevel", Build.VERSION.SDK_INT);
-        params.putBoolean("isX5", x5Init);
-        promise.resolve(params);
     }
 
     // 设置登陆账号

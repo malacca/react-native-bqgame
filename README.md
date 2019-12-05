@@ -36,7 +36,10 @@ react native bqgame
 # 使用
 
 ``` js
+import {Platform} from 'react-native';
 import bqgame, {BqGameCenter} from 'react-native-bqgame'
+
+const x5 = Platform.OS === 'android' && Platform.Version < 22 ? null : false;
 
 // 初始化 链式设置参数
 bqgame.config(appId, appHost).quitConfirm(true).ttad({
@@ -45,10 +48,9 @@ bqgame.config(appId, appHost).quitConfirm(true).ttad({
 
 }).onClick(() => {
 
-}).withX5(22).init();
+}).withX5(x5).init();
 
 // 初始化之后 使用组件载入游戏列表
-
 <BqGameCenter />
 ```
 
@@ -65,6 +67,9 @@ bqgame.setAccount(String account)
 
 // 退出当前账户
 bqgame.clearAccount()
+
+// 是否启用x5
+bqgame.isX5().then((Boolean x5) => { })
 
 // 设置是否静音
 bqgame.mute(Boolean mute)

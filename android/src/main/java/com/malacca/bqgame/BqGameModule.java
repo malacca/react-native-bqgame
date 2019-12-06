@@ -111,7 +111,7 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
                 getCurrentActivity().getApplication(),
                 getGameAppInfo(config),
                 new ImageLoader(),
-                false
+                isConfigTrue(config, "debug") || BuildConfig.DEBUG
         );
     }
 

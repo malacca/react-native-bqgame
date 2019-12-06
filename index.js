@@ -35,6 +35,7 @@ const Attrs = [
   'screenOn', // 是否在游戏时保持屏幕常亮
   'quitConfirm', // 是否在退出游戏时, 显示二次确认弹出框
   'quitRecommend', // 是否在退出弹出框中显示 推荐游戏
+  'debug',  // 是否开启 android 日志, debug 模式默认为 true, 反之 false
   'ttad',  // 广告配置
   /* ttad 的参数是一个 object, 设置广告相关参数
   {

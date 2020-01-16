@@ -11,7 +11,7 @@ import com.facebook.react.uimanager.LayoutShadowNode;
 import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
 
-public class BqGameViewManager extends SimpleViewManager<BqGameViewManager.BqGameView> {
+class BqGameViewManager extends SimpleViewManager<BqGameViewManager.BqGameView> {
     private LayoutShadowNode layoutShadowNode;
 
     @Override

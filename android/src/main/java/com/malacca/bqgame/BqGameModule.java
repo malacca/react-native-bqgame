@@ -8,10 +8,8 @@ import java.lang.reflect.Proxy;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationHandler;
 
-import android.os.Build;
 import android.text.TextUtils;
 import android.content.Context;
-
 import androidx.annotation.NonNull;
 
 import com.cmcm.cmgame.utils.X5Helper;
@@ -36,7 +34,7 @@ import com.cmcm.cmgame.IGamePlayTimeCallback;
 import com.cmcm.cmgame.gamedata.bean.GameInfo;
 import com.cmcm.cmgame.gamedata.CmGameAppInfo;
 
-public class BqGameModule extends ReactContextBaseJavaModule implements LifecycleEventListener,
+class BqGameModule extends ReactContextBaseJavaModule implements LifecycleEventListener,
         IAppCallback,
         IGamePlayTimeCallback,
         IGameAdCallback,
@@ -53,7 +51,7 @@ public class BqGameModule extends ReactContextBaseJavaModule implements Lifecycl
     /**
      * 模块类 开始
      */
-    public BqGameModule(ReactApplicationContext context) {
+    BqGameModule(ReactApplicationContext context) {
         super(context);
         rnContext = context;
     }

@@ -26,6 +26,19 @@ react native bqgame
 - 若编译过程，相关依赖版本冲突
 - x5 内核集成的相关设置
 
+若集成 X5 后需要在项目的  `android/app/build.gradle` 中添加
+
+```
+...
+android {
+    ...
+    defaultConfig {
+        ....
+        ndk{abiFilters "armeabi-v7a"}
+    }
+}
+...
+```
 
 # iOS 配置
 
@@ -37,30 +50,30 @@ react native bqgame
 
 ``` js
 import {Platform} from 'react-native';
-import bqgame, {BqGameCenter} from 'react-native-bqgame'
+import {initSdk, BqGameCenter} from 'react-native-bqgame'
 
 const x5 = Platform.OS === 'android' && Platform.Version < 22 ? null : false;
 
 // 初始化 链式设置参数
-bqgame.config(appId, appHost).quitConfirm(true).ttad({
-    rewardVideo:""
-}).onLogin(account => {
-
-}).onClick(() => {
-
-}).withX5(x5).init();
+initSdk({
+    .....
+})
 
 // 初始化之后 使用组件载入游戏列表
-<BqGameCenter />
+<BqGameCenter onLoad={callback}/>
 ```
 
-链式过程可使用的函数参见：[index.js](index.js#L26)
+initSdk 参数见：[index.js](index.js#L43)
 
 
 
 ## 更多API 
 
 ```js
+import * as bqgame from 'react-native-bqgame'
+
+// 若自行渲染列表, 调用该函数登录
+bqgame.initAccount()
 
 // 设置游戏账户, 需使用 onLogin 回调得到的 account
 bqgame.setAccount(String account)
@@ -71,23 +84,25 @@ bqgame.clearAccount()
 // 是否启用x5
 bqgame.isX5().then((Boolean x5) => { })
 
-// 设置是否静音
+// 静音
+bqgame.isMute().then((Boolean mute) => { })
 bqgame.mute(Boolean mute)
 
-// 是否静音
-bqgame.isMute().then((Boolean mute) => { })
-
-// 设置游戏时是否保持屏幕常亮
+// 屏幕常亮
+bqgame.isScreenOn().then((Boolean screenOn) => { })
 bqgame.setScreenOn(Boolean mute)
 
-// 是否屏幕常亮
-bqgame.isScreenOn().then((Boolean screenOn) => { })
-
-// 设置退出游戏 是否显示二次确认框
+// 退出游戏 是否显示二次确认框
+bqgame.isQuitConfirm().then((Boolean screenOn) => { })
 bqgame.setQuitConfirm(Boolean yes);
 
 // 设置退出游戏 是否显示推荐游戏
+bqgame.isQuitRecommend().then((Boolean screenOn) => { })
 bqgame.setQuitRecommend(Boolean yes);
+
+// 是否显示列表的 福利入口
+bqgame.isRewarded().then((Boolean screenOn) => { })
+bqgame.setRewarded(Boolean yes);
 
 // 所有游戏列表
 bqgame.getGameList().then( lists => { } )

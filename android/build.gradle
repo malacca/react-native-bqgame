@@ -37,11 +37,11 @@ dependencies {
         implementation 'com.github.bumptech.glide:glide:4.9.0'
     }
 
-    def deps = ["cmgame-sdk-tt2103-1.1.7.aar"]
+    def deps = ["cmgame-sdk-tt2103-1.1.8.aar"]
 
     // 是否集成 x5 (默认不集成) 添加 BQGAME_X5_ENABLE=true 集成
     if (safeCfgGet("BQGAME_X5_ENABLE", "false") == "true") {
-        deps.add("x5fit-1.1.7.aar")
+        deps.add("x5fit-1.1.8.aar")
 
         // 集成 x5 sdk, 若已集成, 为避免版本冲突, 可设置 BQGAME_X5_SDK_READY=true
         if (safeCfgGet("BQGAME_X5_SDK_READY", "false") != "true") {

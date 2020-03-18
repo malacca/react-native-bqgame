@@ -26,15 +26,16 @@ react native bqgame
 - 若编译过程，相关依赖版本冲突
 - x5 内核集成的相关设置
 
-若集成 X5 后需要在项目的  `android/app/build.gradle` 中添加
+X5 不支持64 位，若集成 X5，需要修改  `android/app/build.gradle`，移除 abi 中的 `arm64-v8a`
 
 ```
 ...
-android {
-    ...
-    defaultConfig {
-        ....
-        ndk{abiFilters "armeabi-v7a"}
+splits {
+    abi {
+        reset()
+        enable enableSeparateBuildPerCPUArchitecture
+        universalApk false  // If true, also generate a universal APK
+        include "armeabi-v7a", "x86", ["arm64-v8a",] "x86_64"
     }
 }
 ...

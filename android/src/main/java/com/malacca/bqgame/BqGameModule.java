@@ -8,6 +8,7 @@ import java.lang.reflect.Proxy;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationHandler;
 
+import android.app.Activity;
 import android.text.TextUtils;
 import android.content.Context;
 import androidx.annotation.NonNull;
@@ -16,6 +17,7 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.UiThreadUtil;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.LifecycleEventListener;
@@ -92,7 +94,7 @@ class BqGameModule extends ReactContextBaseJavaModule implements LifecycleEventL
      * 3. withX5="auto" 尝试自动集成
      */
     @ReactMethod
-    public void initSdk(ReadableMap config) {
+    public void initSdk(final ReadableMap config) {
         String x5 = config.hasKey("withX5") ? config.getString("withX5") : null;
         if ("yes".equals(x5)) {
             initX5End(true);
@@ -107,12 +109,20 @@ class BqGameModule extends ReactContextBaseJavaModule implements LifecycleEventL
         if (!TextUtils.isEmpty(account)) {
             CmGameSdk.restoreCmGameAccount(account);
         }
-        CmGameSdk.initCmGameSdk(
-                getCurrentActivity().getApplication(),
-                getGameAppInfo(config),
-                new ImageLoader(),
-                isConfigTrue(config, "debug") || BuildConfig.DEBUG
-        );
+        UiThreadUtil.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Activity activity = getCurrentActivity();
+                if (activity != null) {
+                    CmGameSdk.initCmGameSdk(
+                            activity.getApplication(),
+                            getGameAppInfo(config),
+                            new ImageLoader(),
+                            isConfigTrue(config, "debug") || BuildConfig.DEBUG
+                    );
+                }
+            }
+        });
     }
 
     // 通过反射初始化 x5 内核, 这样在无 x5 sdk 依赖的情况下仍然可编译
